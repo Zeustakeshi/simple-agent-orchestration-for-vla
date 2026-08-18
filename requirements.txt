@@ -1,0 +1,19 @@
+# Cài torch (CUDA) TRƯỚC theo hướng dẫn ở README (tuỳ driver GPU từng máy), rồi mới
+# `pip install -r requirements.txt`.
+
+# --- Edge VLA: LIBERO/MuJoCo + policy runtime ---
+# Extra "libero" của lerobot tự kéo theo: hf-libero (package LIBERO), robosuite==1.4.0,
+# mujoco<3.9, bddl, robomimic, transformers... không cần cài LIBERO riêng.
+lerobot[libero]==0.6.1
+opencv-python==4.11.0.86   # cần bản có GUI (không phải -headless) vì viewer dùng cv2.imshow
+
+# --- Edge VLA: MCP server ---
+mcp==1.29.0
+fastapi==0.139.0
+uvicorn==0.51.0
+
+# --- Cloud Agent: LangGraph + LLM client ---
+langgraph==1.2.11
+langchain-openai==1.5.1
+sse-starlette==3.4.8
+python-dotenv==1.2.2
