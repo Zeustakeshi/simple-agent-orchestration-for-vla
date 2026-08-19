@@ -1,0 +1,36 @@
+{
+  "name": "ui",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "eslint",
+    "verify:trace-acceptance": "node scripts/verify-trace-acceptance.mjs",
+    "verify:trace-privacy": "node scripts/verify-trace-privacy.mjs",
+    "verify:trace-timeline": "node scripts/verify-trace-timeline.mjs",
+    "verify:trace-translate": "node --experimental-strip-types scripts/verify-trace-translate.mts",
+    "verify:agent-steps": "node --experimental-strip-types scripts/verify-agent-steps.mts",
+    "verify:mvp-chat": "node --experimental-strip-types scripts/verify-mvp-chat.mts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "lucide-react": "^1.31.0",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "^3.10.1",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

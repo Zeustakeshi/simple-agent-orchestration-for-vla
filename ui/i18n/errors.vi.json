@@ -1,0 +1,39 @@
+{
+  "AUTH_004": "Phiên đăng nhập không còn hiệu lực. Đăng nhập lại.",
+  "AUTH_005": "Tài khoản không được phép truy cập hệ thống này.",
+  "AUTH_006": "Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.",
+  "AUTH_007": "Không xác thực được với Google. Thử lại sau ít phút.",
+  "AUTH_008": "Email này đã được sử dụng. Thử đăng nhập hoặc dùng email khác.",
+  "AUTH_011": "Trình duyệt không gửi được cookie đăng nhập. Cho phép cookie với trang API (cùng host với Google callback), rồi thử lại.",
+  "AUTH_009": "Email hoặc mật khẩu không đúng.",
+
+  "ROBOT_010": "Robot đang thực hiện nhiệm vụ khác.",
+  "ROBOT_011": "Robot đang ngoại tuyến.",
+  "ROBOT_012": "Robot đang dừng, chờ dừng xong rồi thao tác tiếp.",
+  "ROBOT_020": "Robot báo lỗi phần cứng. Xoá lỗi trước khi ra lệnh mới.",
+  "ROBOT_021": "Phát hiện lực bất thường trên khớp. Robot đã dừng an toàn.",
+  "ROBOT_022": "Khớp vượt giới hạn cho phép. Robot đã dừng an toàn.",
+  "ROBOT_023": "Nhiệt độ khớp vượt ngưỡng an toàn. Robot đã dừng.",
+
+  "MCP_001": "Không gọi được thiết bị Edge. Kiểm tra kết nối mạng của robot.",
+  "MCP_030": "Đã đạt số người xem tối đa cho camera này.",
+  "LIBERO_NO_EPISODE": "Chưa có episode đang chạy — gọi take_action trước rồi mở lại camera.",
+
+  "AGENT_001": "Agent không hoàn thành được nhiệm vụ.",
+  "AGENT_003": "Agent chạy quá lâu. Thử lại với câu ngắn hơn, hoặc đổi model LLM nhanh hơn.",
+  "AGENT_012": "Agent không hoàn thành được nhiệm vụ. Xem nhật ký để biết chi tiết.",
+  "AGENT_020": "Không thể xoá khi phiên đang chạy nhiệm vụ.",
+
+  "SCHED_001": "Tên lịch chạy không được để trống.",
+  "SCHED_002": "Biểu thức lịch chạy không hợp lệ.",
+  "SCHED_003": "Hai lần chạy phải cách nhau ít nhất 5 phút.",
+  "SCHED_004": "Robot đã chọn không còn tồn tại.",
+  "SCHED_010": "Không tìm thấy lịch chạy.",
+  "SCHED_020": "Lịch đang chạy, không thể chạy thử lúc này.",
+
+  "VAL_005": "Giá trị không hợp lệ.",
+  "VAL_006": "Thiếu trường bắt buộc.",
+
+  "NET_001": "Không kết nối được máy chủ. Kiểm tra đường truyền rồi thử lại.",
+  "SYS_001": "Hệ thống gặp sự cố. Thử lại sau ít phút."
+}
