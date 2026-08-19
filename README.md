@@ -74,9 +74,17 @@ OPENAI_MODEL=...                                  # PHẢI là model hỗ trợ 
 > hoặc nhận ảnh kết quả từ `take_action`. Chọn model có vision, ví dụ
 > `google/gemini-2.0-flash-001` hoặc `openai/gpt-4o-mini` qua OpenRouter.
 
+### 5. Cài giao diện web
+
+Giao diện là app Next.js trong [`ui/`](ui/), cần **Node 20+**:
+
+```bash
+cd ui && npm install && cd ..
+```
+
 ## Chạy
 
-Cần 2 terminal, cùng activate `lerobot_arm`:
+Cần 3 terminal. Hai cái đầu activate `lerobot_arm`:
 
 ```bash
 # Terminal 1 — Edge: mở cửa sổ MuJoCo/cv2, load SmolVLA (lần đầu ~1-2 phút để tải weight)
@@ -86,9 +94,37 @@ conda activate lerobot_arm
 # Terminal 2 — Cloud Agent: FastAPI :8000
 conda activate lerobot_arm
 ./run_server.sh
+
+# Terminal 3 — Giao diện web: Next.js :3000 (không cần conda)
+./run_ui.sh
 ```
 
-Mở trình duyệt: **http://localhost:8000**
+Mở trình duyệt: **http://localhost:3000**
+
+> Cổng 8000 giờ chỉ còn là API — mở nó chỉ nhận được một dòng chỉ đường sang
+> :3000. Trình duyệt không gọi thẳng :8000 hay :8931 bao giờ: Next chuyển tiếp
+> `/chat`, `/go_home` và `/mjpeg` sang chúng (`ui/next.config.ts`), nhờ vậy mọi
+> thứ cùng một origin và FastAPI không cần cấu hình CORS.
+
+## Luồng sự kiện của `/chat`
+
+`POST /chat` trả một luồng SSE. Giao diện dịch nó sang từ vựng riêng ở
+`ui/lib/api/mvp-chat.ts` — muốn viết client khác thì đây là toàn bộ giao thức:
+
+| Sự kiện | Payload | Ý nghĩa |
+|---|---|---|
+| `agent_text` | `{text}` | lời agent nói với người dùng |
+| `agent_reasoning` | `{text}` | suy nghĩ nội bộ — giao diện xếp vào khối "Suy nghĩ" thu gọn, không trộn vào câu trả lời |
+| `agent_message_end` | `{}` | model nói xong một tin nhắn |
+| `tool_call` | `{id, name, args}` | agent quyết định gọi một tool MCP |
+| `tool_result` | `{id, name, result}` | tool đó trả về |
+| `done` | `{}` | lượt chạy kết thúc |
+
+Model kiểu harmony (gpt-oss và một số bản trên Ollama Cloud) phát nguyên văn
+token điều khiển `<|channel|>analysis<|message|>…` lẫn trong nội dung.
+`server/harmony.py` tách chúng ngay trên luồng, nên `agent_text` chỉ còn lời nói
+sạch còn phần nghĩ đi qua `agent_reasoning`. Kiểm chứng:
+`python scripts/verify_harmony.py`.
 
 ## Sự cố thường gặp
 
@@ -103,6 +139,13 @@ Mở trình duyệt: **http://localhost:8000**
 - **Hết VRAM**: giảm tải bằng cách đóng ứng dụng GPU khác; SmolVLA cần ~2-3GB VRAM.
 - **`touch /tmp/vla_inject_safety`**: dùng để demo/test nhánh dừng khẩn cấp
   (SAFETY_STOP) — xoá file đó để robot chạy lại bình thường.
+- **Khung camera báo "Không nhận được luồng camera"**: `run_edge.sh` chưa chạy,
+  hoặc đang chạy ở cổng khác `8931` — đặt `EDGE_BASE_URL` trong `ui/.env.local`.
+- **Chat báo lỗi kết nối**: `run_server.sh` chưa chạy, hoặc ở cổng khác `8000` —
+  đặt `AGENT_BASE_URL` trong `ui/.env.local`.
+- **Các trang Bảng điều khiển / Nhật ký / Lịch chạy hiện dữ liệu lạ**: đúng như
+  vậy — chúng chạy bằng dữ liệu mẫu vì backend chưa có API cho chúng. Chat và
+  camera là hai phần chạy thật. Xem [`ui/README.md`](ui/README.md).
 
 ## Cấu trúc thư mục
 
@@ -110,11 +153,14 @@ Mở trình duyệt: **http://localhost:8000**
 mvp_vla/
 ├── .env.example               Mẫu biến môi trường
 ├── requirements.txt            Dependency (trừ torch — cài riêng theo GPU)
-├── run_edge.sh  run_server.sh  2 script chạy
+├── run_edge.sh  run_server.sh  Script chạy edge và cloud agent
 ├── scripts/spike_policy.py     Smoke test policy (Task 0)
+├── scripts/verify_harmony.py   Kiểm chứng bộ tách kênh của luồng token
 ├── edge_vla/                   MCP SERVER (LIBERO/MuJoCo + SmolVLA + hard limits)
-└── server/                     Cloud Agent (LangGraph + FastAPI + MCP client)
-└── ui/index.html                Chat UI + event log + MJPEG live view
+├── server/                     Cloud Agent (LangGraph + FastAPI + MCP client)
+│   └── harmony.py              Tách suy nghĩ / lời nói khỏi luồng token model
+├── ui/                         Giao diện web Next.js — xem ui/README.md
+└── run_ui.sh                   Script chạy giao diện
 ```
 
 Chi tiết thiết kế từng module: xem [`PLAN.md`](PLAN.md).

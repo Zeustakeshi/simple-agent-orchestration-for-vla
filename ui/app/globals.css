@@ -1,0 +1,778 @@
+@import "tailwindcss";
+
+/* ================================================================
+   DESIGN TOKENS — MASTER §4
+   ================================================================ */
+/* Tokens are named by ROLE, not by literal colour:
+     ink-950 → ink-700 = the surface ladder, deepest to most raised
+     paper-50 / haze-300 / haze-500 = the text ladder, strongest to faintest
+   That is what lets a whole second theme exist without touching a component:
+   the light theme redefines the same roles rather than adding new classes.
+
+   Dark is the default and stays the product's home (MASTER §1 mục 6 — camera
+   work happens with the lab lights off). Light is opt-in.
+
+   `[data-theme="dark"]` repeats the dark values on purpose so a subtree can
+   force dark inside a light page — the landing hero does exactly that. */
+:root,
+[data-theme="dark"] {
+  /* Nền — xám NÂU ẤM, không phải đen ngả xanh. Đen tuyền + sắc lạnh nhìn
+     chán và bẹt; hơi ngả nâu thì các bậc nền tách nhau rõ hơn mà vẫn tối.
+     Bốn bậc, chênh đủ để phân lớp bằng nền chứ không cần đổ bóng (§6). */
+  --ink-950: #191614;
+  --ink-900: #201D1A;
+  --ink-800: #2A2724;
+  --ink-700: #37332F;
+
+  /* Đường kẻ */
+  /* 0.16 chứ không phải 0.09: ở 0.09 viền chỉ nổi 1.32x so với panel,
+     gần như không nhìn thấy trên nền tối. 0.16 cho ~1.65x — đủ để đọc ra
+     mép tấm kính, vẫn là hairline chứ chưa thành đường kẻ ô. */
+  --line: rgb(255 255 255 / 0.16);
+  --line-strong: rgb(255 255 255 / 0.28);
+
+  /* Lớp phủ hover trên bề mặt trong suốt (command palette, lightbox) */
+  --overlay-hover: rgb(255 255 255 / 0.10);
+
+  /* Chữ — ngả ấm theo nền */
+  --paper-50: #F6F4F1;
+  --haze-300: #ADA79F;
+  --haze-500: #9A948C;
+
+  /* Hành động — TÁCH VAI, và đây là chỗ dễ sai nhất:
+     một sắc xanh không thể vừa làm nền nút (chữ trắng đè lên → nền phải đủ
+     tối) vừa làm chữ nhấn trên nền tối (→ phải đủ sáng). Đo ra hai vai lệch
+     nhau vài bậc độ sáng, nên buộc phải là hai giá trị khác nhau. */
+  --arc-600: #0A52B8;   /* pressed */
+  --arc-500: #0B67E0;   /* nền nút · chữ trắng 5.21:1 */
+  --arc-hover: #0F6FE8; /* hover của nền nút · chữ trắng 4.71:1 */
+  --arc-400: #5CA8FF;   /* chữ/nhấn trên nền tối · 6.01:1 */
+
+  /* Ngữ nghĩa — KHOÁ §4.1: chỉ đổi sắc cho tươi hơn, ý nghĩa giữ nguyên */
+  --cyan-400: #64D2FF;
+  --amber-400: #FFA00A;
+  --jade-400: #30D158;
+  --halt-500: #FF5A52;  /* chữ lỗi trên nền tối · 4.83:1 */
+  --halt-600: #C93028;  /* nền nút Dừng · chữ trắng 5.33:1 */
+  --halt-700: #A5231C;  /* hover/pressed của nút Dừng */
+
+  /* Chrome đổi theo theme — PHẢI là token, không được là bộ chọn hậu duệ.
+     Xem ghi chú dài ở khối `.liquid-glass` bên dưới: `[data-theme="light"] .x`
+     xuyên qua được một `data-theme="dark"` lồng bên trong, nên trang chủ (tự
+     ghim tối) bị theme sáng của <html> với tới. Khai báo ở đây thì subtree tối
+     khai báo đè lên và kế thừa xử lý đúng. */
+  --lg-tint-base: rgba(255, 255, 255, 0.05);
+  --lg-edge-base: rgba(255, 255, 255, 0.22);
+  --lg-tint-strong: rgba(32, 29, 26, 0.64);
+  --lg-edge-strong: rgba(255, 255, 255, 0.20);
+  --lg-tint-surface: rgba(255, 255, 255, 0.03);
+  --lg-edge-surface: rgba(255, 255, 255, 0.20);
+  --lg-tint-nobackdrop: rgba(42, 39, 36, 0.92);  /* trình duyệt không có backdrop-filter */
+  --lg-tint-opaque: rgba(42, 39, 36, 0.96);      /* prefers-reduced-transparency */
+  --dialog-bar-bg: var(--ink-900);
+  --scroll-thumb: rgb(255 255 255 / 0.10);
+  --scroll-thumb-hover: rgb(255 255 255 / 0.20);
+
+  /* Khung ô soạn lệnh — giữ NGUYÊN từng giá trị của bản cũ, chỉ đưa ra token */
+  --composer-bg: rgb(255 255 255 / 0.05);
+  --composer-bg-active: rgb(255 255 255 / 0.10);
+  --composer-edge: rgb(255 255 255 / 0.10);
+  --composer-edge-active: rgb(255 255 255 / 0.20);
+  --composer-shadow: 0 8px 32px rgb(0 0 0 / 0.20);
+  --composer-glow: 0 0 20px rgb(255 255 255 / 0.05);
+  --composer-backdrop: blur(40px);
+
+  /* Chuyển động — §7 */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* Font variables — set by next/font in layout.tsx */
+  --font-display: var(--font-archivo);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  color-scheme: dark;
+}
+
+/* ----------------------------------------------------------------
+   THEME SÁNG — cùng vai trò, đảo thang
+   Màu ngữ nghĩa được làm đậm lại để giữ 4.5:1 trên nền sáng (§15);
+   ý nghĩa của từng màu không đổi (§4.1).
+   ---------------------------------------------------------------- */
+[data-theme="light"] {
+  /* Thang bề mặt: sâu nhất = sáng nhất, nổi lên thì đậm dần. Cùng sắc ấm với
+     theme tối để hai bên là một hệ, không phải hai thiết kế rời. */
+  --ink-950: #F8F6F3;
+  --ink-900: #F2EFEB;
+  --ink-800: #FFFFFF;
+  --ink-700: #E7E3DE;
+
+  --line: rgb(28 22 18 / 0.16);
+  --line-strong: rgb(28 22 18 / 0.30);
+
+  --overlay-hover: rgb(28 22 18 / 0.06);
+
+  /* Thang chữ */
+  --paper-50: #1A1613;
+  --haze-300: #4E4842;
+  --haze-500: #6A645D;
+
+  /* Nền nút giữ nguyên (chữ trắng vẫn 5.21:1); chữ nhấn phải đậm lại vì giờ
+     nằm trên nền sáng */
+  --arc-600: #08419A;
+  --arc-500: #0B67E0;
+  --arc-hover: #0A57C2;
+  --arc-400: #0A57C2;
+
+  /* Ngữ nghĩa */
+  --cyan-400: #0E7C93;
+  --amber-400: #96620A;
+  --jade-400: #0A7A53;
+  --halt-500: #C62A30;
+  --halt-600: #A31F24;
+  --halt-700: #85181C;
+
+  /* Kính ở theme sáng là màng TRẮNG đục, viền hairline tối — dùng lại màng
+     trắng mờ của theme tối thì chữ (lúc này màu tối) mất tương phản. */
+  --lg-tint-base: rgba(255, 255, 255, 0.58);
+  --lg-edge-base: rgba(28, 22, 18, 0.20);
+  --lg-tint-strong: rgba(255, 255, 255, 0.86);
+  --lg-edge-strong: rgba(28, 22, 18, 0.20);
+  --lg-tint-surface: rgba(255, 255, 255, 0.66);
+  --lg-edge-surface: rgba(28, 22, 18, 0.18);
+  --lg-tint-nobackdrop: rgba(255, 255, 255, 0.94);
+  --lg-tint-opaque: rgba(255, 255, 255, 0.97);
+  --dialog-bar-bg: var(--ink-800);
+  --scroll-thumb: rgb(13 21 32 / 0.14);
+  --scroll-thumb-hover: rgb(13 21 32 / 0.26);
+
+  /* Ô soạn lệnh ở theme sáng: mặt ĐỤC nổi lên khỏi nền trang, đúng quy ước
+     `.panel` (ink-800 trên ink-900). Màng trắng 5% của theme tối đặt lên nền
+     gần trắng thì cái khung biến mất hẳn.
+     Nền đục rồi thì `backdrop-filter` không đổi được pixel nào mà vẫn tốn GPU
+     mỗi khung hình — bỏ luôn, và bỏ hẳn chứ không đặt blur(0): giá trị 0 vẫn
+     tạo containing block mới cho `position: fixed` bên trong. */
+  --composer-bg: var(--ink-800);
+  --composer-bg-active: var(--ink-800);
+  --composer-edge: var(--line);
+  --composer-edge-active: var(--line-strong);
+  --composer-shadow: 0 4px 16px rgb(28 22 18 / 0.08);
+  --composer-glow: 0 0 0 3px rgb(11 103 224 / 0.12);
+  --composer-backdrop: none;
+
+  color-scheme: light;
+}
+
+/* ================================================================
+   TAILWIND v4 THEME — map tokens to Tailwind utilities
+   ================================================================ */
+@theme {
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+
+  --color-paper-50: var(--paper-50);
+  --color-haze-300: var(--haze-300);
+  --color-haze-500: var(--haze-500);
+
+  --color-arc-600: var(--arc-600);
+  --color-arc-500: var(--arc-500);
+  --color-arc-400: var(--arc-400);
+  --color-arc-hover: var(--arc-hover);
+  --color-halt-700: var(--halt-700);
+
+  --color-cyan-400: var(--cyan-400);
+  --color-amber-400: var(--amber-400);
+  --color-jade-400: var(--jade-400);
+  --color-halt-500: var(--halt-500);
+  --color-halt-600: var(--halt-600);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+/* ================================================================
+   NỐI LẠI @theme Ở MỖI RANH GIỚI THEME  — bắt buộc, không phải tối ưu
+   ================================================================
+
+   Khối `@theme` ở trên chỉ đặt `--color-paper-50: var(--paper-50)` lên `:root`.
+   Theo chuẩn CSS, custom property có chứa `var()` được thay thế TẠI CHÍNH PHẦN
+   TỬ KHAI BÁO NÓ, rồi con cháu kế thừa KẾT QUẢ ĐÃ TÍNH.
+
+   Hệ quả: `--color-paper-50` chốt giá trị ngay ở `:root` theo theme của <html>.
+   Một `data-theme="dark"` lồng bên trong có khai báo lại `--paper-50` cũng vô
+   ích — `--color-paper-50` không được tính lại, vì nó không được khai báo lại.
+
+   Mà utility của Tailwind lại đọc đúng biến đó: `.text-paper-50 { color:
+   var(--color-paper-50) }`. Nên MỌI utility màu đều đóng băng theo theme gốc và
+   bỏ qua `data-theme` lồng bên trong. Ở theme sáng, `text-paper-50` trong viên
+   thuốc than chì của trang chủ ra #1A1613 — chữ đen trên nền đen. Lightbox và
+   khung camera (cũng ghim tối) dính y hệt: chữ tối trên nền đen.
+
+   Khai báo lại ở `[data-theme]` — khớp MỌI phần tử mang thuộc tính đó, không
+   riêng `:root` — thì mỗi ranh giới theme tự tính lại cầu nối theo token của
+   chính nó. Đây là chỗ DUY NHẤT sửa được: không thể sửa trong `@theme`, và sửa
+   ở từng component thì phải nhớ mãi mãi.
+
+   THÊM TOKEN MÀU MỚI thì phải thêm một dòng vào đây, nếu không nó sẽ đóng băng
+   đúng như trên. */
+:root,
+[data-theme] {
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+
+  --color-paper-50: var(--paper-50);
+  --color-haze-300: var(--haze-300);
+  --color-haze-500: var(--haze-500);
+
+  --color-arc-600: var(--arc-600);
+  --color-arc-500: var(--arc-500);
+  --color-arc-400: var(--arc-400);
+  --color-arc-hover: var(--arc-hover);
+
+  --color-cyan-400: var(--cyan-400);
+  --color-amber-400: var(--amber-400);
+  --color-jade-400: var(--jade-400);
+  --color-halt-500: var(--halt-500);
+  --color-halt-600: var(--halt-600);
+  --color-halt-700: var(--halt-700);
+}
+
+/* ================================================================
+   BASE STYLES
+   ================================================================ */
+html {
+  /* Neo #san-pham / #ho-tro ở trang chủ: cuộn mượt, và chừa chỗ cho thanh điều
+     hướng nổi phía trên để tiêu đề mục không bị nó che mất. */
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+body {
+  background: var(--ink-900);
+  color: var(--paper-50);
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Nền app shell: lưới hairline 32px, cùng loại đang dùng ở trang đăng nhập.
+
+   Lý do kỹ thuật, không phải trang trí: `backdrop-filter` chỉ nhìn thấy được
+   khi phía sau có chi tiết để làm nhoè. Trên một mảng màu đặc, blur chạy đủ
+   tốn GPU nhưng không đổi một pixel nào. Có lưới này thì cột trái bằng kính
+   mới thật sự "mờ" được và nhìn ra chất kính. Độ đậm giữ rất thấp để không
+   phạm quy tắc "nền tĩnh" của §3. */
+.app-shell-bg {
+  background-color: var(--ink-900);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+:root,
+[data-theme="dark"] { --grid-line: rgb(255 255 255 / 0.035); }
+[data-theme="light"] { --grid-line: rgb(28 22 18 / 0.05); }
+
+/* ================================================================
+   TYPOGRAPHY SCALE — MASTER §5 (fixed, no custom sizes)
+   ================================================================ */
+/* Bắt buộc nằm trong @layer: CSS không-layer luôn thắng utility của Tailwind
+   (utility ở trong @layer utilities), nên khi để ngoài layer thì mọi ghi đè
+   kiểu `data text-haze-500` hay `title text-[16px]` đều bị nuốt im lặng —
+   chữ phụ render sáng bằng chữ chính và mọi cỡ nhỏ bị kéo về một cỡ. */
+@layer components {
+  .display-xl {
+    font-family: var(--font-display), ui-sans-serif, sans-serif;
+    font-size: 44px;
+    line-height: 1.02;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .display-l {
+    font-family: var(--font-display), ui-sans-serif, sans-serif;
+    font-size: 28px;
+    line-height: 1.10;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .title {
+    font-family: var(--font-body), ui-sans-serif, sans-serif;
+    font-size: 18px;
+    line-height: 1.30;
+    font-weight: 600;
+  }
+  .body-text {
+    font-family: var(--font-body), ui-sans-serif, sans-serif;
+    font-size: 14px;
+    line-height: 1.50;
+    font-weight: 400;
+  }
+  .ui-text {
+    font-family: var(--font-body), ui-sans-serif, sans-serif;
+    font-size: 13px;
+    line-height: 1.40;
+    font-weight: 500;
+  }
+  .eyebrow {
+    font-family: var(--font-body), ui-sans-serif, sans-serif;
+    font-size: 11.5px;
+    line-height: 1.30;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--haze-500);
+  }
+  .data {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--paper-50);
+  }
+  /* Archivo, used sparingly: landing h1, page titles, wordmark */
+  .font-display {
+    font-family: var(--font-display), ui-sans-serif, sans-serif;
+  }
+  .log-text {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    font-weight: 400;
+  }
+}
+
+/* ================================================================
+   COMPONENT RECIPES — MASTER §10 (@layer components)
+   ================================================================ */
+@layer components {
+  .panel {
+    background: var(--ink-800);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .panel-inset {
+    background: var(--ink-900);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  /* ---- Tấm kính phẳng ---------------------------------------------
+     Trước đây khung là một vòng gradient sáng ở mép (sáng hai đầu, tắt ở
+     giữa). Nó đọc ra "đường viền được vẽ", không phải "miếng kính". Kính
+     thật thì ngược lại: mặt phẳng đều, nền trong mờ đều, viền hairline một
+     sắc duy nhất, và cái tạo chiều sâu là blur phía sau chứ không phải ánh
+     sáng ở mép.
+
+     Panel giờ trong mờ ~88% nên lưới nền hiện mờ qua — đó là thứ khiến blur
+     nhìn thấy được. Giữ độ đục cao để chữ trên panel gần như không đổi
+     tương phản.
+
+     Cố ý không đặt overflow:hidden — menu ⋯ và tooltip bên trong panel phải
+     tràn ra ngoài được. */
+  .panel,
+  .panel-inset,
+  .glass-edge {
+    position: relative;
+    backdrop-filter: blur(10px) saturate(1.25);
+    -webkit-backdrop-filter: blur(10px) saturate(1.25);
+  }
+
+  .panel {
+    background: color-mix(in srgb, var(--ink-800) 88%, transparent);
+  }
+  .panel-inset {
+    background: color-mix(in srgb, var(--ink-900) 88%, transparent);
+  }
+  /* Dùng cho khung không phải panel: cột nội dung, khung camera. Camera tự
+     đè bg-black lên vì utility thắng component trong Tailwind v4. */
+  .glass-edge {
+    background: color-mix(in srgb, var(--ink-900) 88%, transparent);
+  }
+
+  /* ---- Mặt menu thả xuống -----------------------------------------
+     KHÔNG trong mờ, KHÔNG blur. Menu nổi lên trên nội dung khác, nếu để
+     trong mờ thì chữ của thẻ phía dưới hiện xuyên qua và không đọc nổi.
+     Đây cũng là lớp duy nhất trong (app) được đổ bóng: bóng ở đây không
+     phải để tách lớp (§6 cấm) mà để nói "cái này đang nổi tạm thời". */
+  /* ---- Khung ô soạn lệnh ------------------------------------------
+     Trước đây viết thẳng `bg-white/5 border-white/10` trong JSX. Ở theme sáng
+     đó là màng trắng 5% và viền trắng 10% đặt lên nền #F2EFEB — ô nhập lệnh
+     mất viền, mất nền, gần như tàng hình. Mà đây là ô người dùng chạm vào
+     nhiều nhất trong cả sản phẩm.
+     Hình thức ở theme TỐI giữ nguyên đúng từng giá trị cũ. */
+  .composer-shell {
+    background: var(--composer-bg);
+    border: 1px solid var(--composer-edge);
+    box-shadow: var(--composer-shadow);
+    backdrop-filter: var(--composer-backdrop);
+    -webkit-backdrop-filter: var(--composer-backdrop);
+    transition:
+      background-color 300ms var(--ease),
+      border-color 300ms var(--ease),
+      box-shadow 300ms var(--ease);
+  }
+  .composer-shell:hover {
+    background: var(--composer-bg-active);
+  }
+  .composer-shell:focus-within {
+    background: var(--composer-bg-active);
+    border-color: var(--composer-edge-active);
+    box-shadow: var(--composer-shadow), var(--composer-glow);
+  }
+
+  .menu-surface {
+    background: var(--ink-800);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  }
+
+  /* Giảm trong suốt → trả về mặt đặc hoàn toàn (MASTER §9) */
+  @media (prefers-reduced-transparency: reduce) {
+    .panel,
+    .panel-inset,
+    .glass-edge {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .panel { background: var(--ink-800); }
+    .panel-inset { background: var(--ink-900); }
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 8px;
+    background: var(--arc-500);
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background-color 120ms var(--ease);
+    cursor: pointer;
+    border: none;
+  }
+  .btn-primary:hover { background: var(--arc-hover); }
+  .btn-primary:active { background: var(--arc-600); }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    color: var(--haze-300);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 120ms var(--ease);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+  }
+  .btn-ghost:hover {
+    color: var(--paper-50);
+    background: var(--ink-700);
+  }
+
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    color: var(--halt-500);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 120ms var(--ease);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+  }
+  .btn-danger:hover {
+    background: rgb(229 72 77 / 0.1);
+  }
+
+  /* Focus ring — MASTER §10: bắt buộc trên mọi phần tử tương tác */
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--ink-900), 0 0 0 4px var(--arc-400);
+  }
+
+  /* Vòng focus đặt lên KHUNG BAO khi ô nhập thật nằm bên trong.
+
+     Dùng cho ô soạn tin: textarea và nút gửi ở chung một khung, nên vòng focus
+     phải ôm cả khung chứ không chỉ riêng textarea — nếu không nó vẽ một vòng
+     lệch nằm lọt trong khung, trông như lỗi.
+
+     `:focus-within` chứ không phải `:focus-visible`: khung bao không tự nhận
+     focus được, nó chỉ phản ánh việc con nó đang được focus. */
+  .focus-ring-within:focus-within {
+    box-shadow: 0 0 0 2px var(--ink-900), 0 0 0 4px var(--arc-400);
+  }
+}
+
+/* ================================================================
+   LIQUID GLASS — MASTER §9, dựng lại theo kiểu "tấm kính phẳng"
+   ================================================================ */
+/* Spec §9 mô tả kính bằng một vòng gradient ở mép (sáng 0.45 ở hai đầu, tắt
+   ở giữa). Trên thực tế nó đọc ra một đường viền được vẽ chứ không ra miếng
+   kính, nhất là khi tấm cao. Ở đây đổi cách dựng, giữ nguyên ý đồ:
+
+     · mặt phẳng, nền trong mờ ĐỀU — không gradient;
+     · viền hairline một sắc duy nhất, đều bốn cạnh;
+     · chiều sâu đến từ blur + saturate phía sau, không đến từ ánh sáng ở mép.
+
+   saturate(1.4) là thứ hay bị bỏ quên: chỉ blur không thôi thì màu phía sau
+   bị xám đi và tấm kính trông như sương mù; đẩy bão hoà lên mới ra cảm giác
+   thuỷ tinh. */
+/* SẮC ĐỘ LẤY TỪ TOKEN, KHÔNG PHẢI TỪ `[data-theme="light"] .liquid-glass`.
+   Bộ chọn hậu duệ chỉ đòi CÓ một tổ tiên mang theme sáng — nó không dừng lại ở
+   `data-theme` gần nhất. Trang chủ tự ghim tối bằng một div lồng bên trong
+   <html data-theme="light">, nên luật hậu duệ vẫn với tới, mà độ đặc hiệu (0,2,0)
+   của nó lại thắng cả `--on-bright` (0,1,0): thanh nav mất tấm kính tối cố ý và
+   thành màng trắng, trong khi chữ trên nó vẫn gần trắng.
+   Token thì kế thừa — subtree tối khai báo đè lên là xong. */
+.liquid-glass {
+  --lg-blur: 12px;
+  --lg-tint: var(--lg-tint-base);
+  --lg-edge: var(--lg-edge-base);
+  background: var(--lg-tint);
+  backdrop-filter: blur(var(--lg-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(1.4);
+  border: 1px solid var(--lg-edge);
+  box-shadow: none;
+  position: relative;
+}
+
+/* Nổi trên khung hình camera (luôn tối) — đục hơn để chữ số đọc được */
+.liquid-glass--hud {
+  --lg-blur: 14px;
+  --lg-tint: rgba(12, 10, 8, 0.42);
+  --lg-edge: rgba(255, 255, 255, 0.24);
+}
+
+/* Lớp tạm: command palette, chrome của lightbox */
+.liquid-glass--strong {
+  --lg-blur: 20px;
+  --lg-tint: var(--lg-tint-strong);
+  --lg-edge: var(--lg-edge-strong);
+}
+
+/* Thanh DÍNH bên trong hộp thoại (tiêu đề, hàng nút) — phải ĐỤC HẲN.
+   Tấm kính của hộp thoại làm mờ những gì nằm SAU hộp thoại, nhưng thanh dính
+   thì phải che nội dung của chính hộp thoại đang cuộn BÊN DƯỚI nó. Nền trong
+   suốt hay bán trong đều cho chữ xuyên qua và chồng lên tiêu đề/nút.
+   Màu chọn đúng bằng `--lg-tint` của `--strong` ở độ đục 100%, nên thanh nhìn
+   liền một khối với tấm kính chứ không thành một dải khác màu. */
+.dialog-bar {
+  background: var(--dialog-bar-bg);
+}
+
+/* Nổi trên nền SÁNG — thanh điều hướng trang chủ đặt trên khung hình studio
+   trắng. Kính --strong (0.62) trên nền trắng ra xám giữa #757371, chữ trắng chỉ
+   đạt 4.30:1, dưới ngưỡng AA. Đục hơn tới 0.82 thì nền pill về #484643 và chữ
+   trắng lên 8.57:1 — dư sức kể cả khi khung hình đang sáng nhất. */
+.liquid-glass--on-bright {
+  --lg-blur: 24px;
+  --lg-tint: rgba(32, 29, 26, 0.82);
+  --lg-edge: rgba(255, 255, 255, 0.28);
+
+  /* Ba thứ làm nên chất kính, trước đó mới có mỗi cái đầu:
+
+     1. blur + saturate — nhoè và đẩy bão hoà phần nền phía sau. Chỉ blur thôi
+        thì màu bị xám lại và tấm kính trông như sương mù.
+     2. bóng đổ — tách tấm kính khỏi nền. Đây là ngoại lệ có chủ đích của §6
+        ("nền tối thì shadow vô nghĩa"): nền ở đây là khung hình studio SÁNG,
+        nên bóng đổ mới là thứ nói cho mắt biết vật này đang nổi lên trên.
+     3. vệt sáng mép trên — mô phỏng ánh sáng bắt vào cạnh vát của tấm kính. */
+  backdrop-filter: blur(var(--lg-blur)) saturate(1.8) brightness(1.05);
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(1.8) brightness(1.05);
+  box-shadow:
+    0 10px 32px rgb(0 0 0 / 0.30),
+    0 2px 8px rgb(0 0 0 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+/* Bề mặt đứng yên: sidebar. Nhạt hơn vì trải trên diện rộng, và mở
+   overflow để popover tài khoản không bị cắt. */
+.liquid-glass--surface {
+  --lg-blur: 10px;
+  --lg-tint: var(--lg-tint-surface);
+  --lg-edge: var(--lg-edge-surface);
+  overflow: visible;
+}
+/* TRONG SUỐT HẲN — chỉ còn viền.
+
+   Khác `--surface` ở chỗ bỏ luôn `backdrop-filter`. Blur 10px làm nhoè lưới
+   nền phía sau, nên tấm kính đọc ra một mảng đục thay vì một khung trong. Bỏ
+   blur thì lưới 32px xuyên qua sắc nét, đúng cảm giác "tấm kính trong".
+
+   Bỏ hẳn `backdrop-filter` chứ không đặt `blur(0)`: kể cả giá trị 0 vẫn tạo
+   stacking context VÀ containing block mới, khiến `position: fixed` bên trong
+   bị neo vào tấm này thay vì vào viewport — đúng lỗi đã làm menu và lightbox
+   kẹt trước đây. Sidebar có dropdown chọn robot nên chuyện này rất thật.
+
+   Chữ vẫn đạt AA vì nền phía sau là `.app-shell-bg` (ink-900): nhãn nav
+   15.3:1, chữ mờ nhất 5.1:1 ở chế độ sáng. */
+.liquid-glass--clear {
+  --lg-tint: transparent;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
+}
+
+.liquid-glass--surface-bottom {
+  --lg-blur: 10px;
+  --lg-tint: var(--lg-tint-surface);
+  --lg-edge: var(--lg-edge-surface);
+  overflow: visible;
+  border-width: 0 0 1px 0;
+}
+
+/* `--clear` KHÔNG cần bản riêng cho theme sáng: nó đặt thẳng
+   `background: transparent`, không đi qua `--lg-tint`, nên hai theme dùng chung
+   một khai báo.
+
+   `--hud` và `--on-bright` cũng không có bản theme sáng, và đó là CHỦ Ý: cả hai
+   nằm trên nền không do theme quyết định — khung hình camera luôn tối, khung
+   hình studio của trang chủ luôn sáng — nên chúng giữ nguyên sắc tối kèm chữ
+   sáng ở cả hai theme. Trước đây `[data-theme="light"] .liquid-glass` đè mất
+   điều đó vì đặc hiệu cao hơn; dùng token thì khai báo riêng của chúng thắng
+   như đáng lẽ phải thế. */
+
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  .liquid-glass { background: var(--lg-tint-nobackdrop); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--lg-tint-opaque);
+  }
+}
+
+/* ================================================================
+   ANIMATIONS — MASTER §7
+   ================================================================ */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin 1.2s linear infinite;
+}
+
+/* Chữ của việc ĐANG diễn ra: một vệt sáng chạy qua.
+
+   Đây là thứ thay cho ba dấu chấm nhảy. Một dòng như "Đang chờ cập nhật (tối đa
+   8s)..." có thể đứng yên ba mươi giây — không có gì chuyển động thì giao diện
+   đọc ra là đã treo. Vệt sáng nói "vẫn đang chạy" mà không chiếm thêm một pixel
+   nào, và không kéo mắt khỏi chữ như một spinner to.
+
+   `background-clip: text` cần chữ trong suốt, nên nó GHI ĐÈ màu chữ. Chỉ dùng
+   cho đúng dòng đang chạy — dán lên dòng đã xong là mất luôn màu trạng thái. */
+@keyframes shimmer-sweep {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.shimmer-text {
+  background: linear-gradient(
+    100deg,
+    var(--haze-300) 20%,
+    var(--paper-50) 40%,
+    var(--paper-50) 55%,
+    var(--haze-300) 75%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-sweep 2.4s linear infinite;
+}
+
+/* Hàng tool mới hiện ra: trôi lên một quãng ngắn rồi hiện rõ.
+
+   Trace live mọc thêm hàng liên tục. Hàng nhảy phịch vào giữa danh sách thì mắt
+   mất dấu chỗ đang đọc; 160ms trôi lên là đủ để mắt bám theo mà không thành ra
+   chờ đợi. Chỉ chạy MỘT lần lúc gắn vào DOM, nên danh sách đã xong hoàn toàn
+   đứng yên. */
+@keyframes trace-row-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+.trace-row-in {
+  animation: trace-row-in 160ms var(--ease) both;
+}
+
+/* Cửa sổ "đang suy nghĩ": chữ cũ mờ dần lên trên thay vì bị cắt ngang.
+
+   Mặt nạ chứ không phải gradient đè lên: khối này nằm trong bong bóng chat, mà
+   bong bóng có thể là ink-800 hay panel tuỳ chỗ — một lớp phủ màu cứng sẽ lộ
+   thành vệt sai màu ở theme sáng. */
+.thinking-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 45%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 45%);
+}
+
+/* Reduced motion — §7: all durations to near-zero except BUSY pulse */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* BUSY pulse exception: static 2-step opacity */
+  .animate-pulse-dot {
+    animation: none !important;
+    opacity: 0.7;
+  }
+
+  /* Vệt sáng là hiệu ứng thuần trang trí — tắt hẳn và trả màu chữ về, chứ
+     không để nó đứng im ở một khung hình ngẫu nhiên (có khung gần như trong
+     suốt, chữ sẽ biến mất). */
+  .shimmer-text {
+    animation: none !important;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--paper-50);
+  }
+  .trace-row-in {
+    animation: none !important;
+  }
+}
+
+/* ================================================================
+   SCROLLBAR — subtle for dark theme
+   ================================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
