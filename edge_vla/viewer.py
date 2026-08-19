@@ -25,7 +25,7 @@ def encode_frames_b64(frames: dict[str, np.ndarray]) -> dict[str, str]:
 
 
 class Viewer:
-    def __init__(self, window_name: str = "MVP VLA - LIBERO"):
+    def __init__(self, window_name: str = "MVP VLA - Robot"):
         self.window_name = window_name
         self._lock = threading.Lock()
         self._frames: dict[str, np.ndarray] | None = None
@@ -47,9 +47,15 @@ class Viewer:
         with self._lock:
             frames = self._frames
             overlay = self._overlay
-        if frames is None:
+        if not frames:
             return None
-        stacked = np.hstack([frames["agentview"], frames["wrist"]])
+        images = list(frames.values())
+        target_h = images[0].shape[0]
+        resized = [
+            img if img.shape[0] == target_h else cv2.resize(img, (int(img.shape[1] * target_h / img.shape[0]), target_h))
+            for img in images
+        ]
+        stacked = np.hstack(resized)
         bgr = cv2.cvtColor(stacked, cv2.COLOR_RGB2BGR)
         if overlay:
             cv2.putText(bgr, overlay, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)

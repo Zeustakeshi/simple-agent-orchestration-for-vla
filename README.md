@@ -1,22 +1,28 @@
 # MVP VLA Orchestrator
 
 Demo kiến trúc **VLA Orchestrator**: Cloud Agent (LLM) định hướng, Edge giữ giới hạn
-cứng. Cloud Agent (LangGraph + LLM qua MCP) điều khiển một cánh tay robot mô phỏng
-trên **LIBERO/MuJoCo** bằng policy **SmolVLA**, qua giao thức MCP với `take_action`
-async + `check_status` polling. Xem chi tiết kiến trúc trong [`PLAN.md`](PLAN.md).
+cứng. Cloud Agent (LangGraph + LLM qua MCP) điều khiển một cánh tay robot THẬT
+(SO-101/SO-100 follower) bằng policy **SmolVLA** (hoặc bất kỳ policy nào lerobot hỗ
+trợ), qua giao thức MCP với `take_action` async + `check_status` polling. Xem chi
+tiết kiến trúc trong [`PLAN.md`](PLAN.md).
 
 Kết quả: mở UI web, gõ "bỏ hộp sữa vào giỏ" — agent phân rã việc, gọi tool, poll
-trạng thái, xem ảnh để quyết định retry, đồng thời thấy cửa sổ MuJoCo có cánh tay
-đang chạy thật.
+trạng thái, xem ảnh camera để quyết định retry, đồng thời cánh tay thật chạy theo.
+
+Robot thật KHÔNG có ground-truth thành công như bản mô phỏng — mọi quyết định
+"xong chưa" hoàn toàn dựa vào agent tự xem ảnh camera.
 
 ## Yêu cầu hệ thống
 
 - **Linux** (đã test), Python **3.12**.
 - **GPU NVIDIA + CUDA** — SmolVLA (~450M tham số) chạy trên GPU. Đã test ổn trên
   RTX 3050 6GB. Không có GPU vẫn chạy được nhưng rất chậm (không khuyến khích).
-- **~3GB dung lượng trống** + **mạng ổn định cho lần chạy đầu tiên** — LIBERO tự tải
-  ~400MB asset 3D (scene/vật thể) về `~/.cache/libero`, và policy SmolVLA tự tải
-  ~1.2GB weight về HuggingFace cache (`~/.cache/huggingface`) khi chạy lần đầu.
+- **Cánh tay SO-101/SO-100 follower** đã calibrate (theo hướng dẫn lerobot), kết nối
+  qua USB serial (`/dev/ttyACM*`) — user cần nằm trong group `dialout` (hoặc chạy với
+  quyền phù hợp) để có thể mở port.
+- **1+ camera USB** (opencv-compatible) gắn theo policy đã train (ví dụ wrist + top).
+- Policy đã huấn luyện sẵn (checkpoint local hoặc HuggingFace repo) — path khai báo
+  trong `config.yaml`.
 - Một **API key LLM hỗ trợ vision + tool-calling** kiểu OpenAI-compatible (OpenAI,
   OpenRouter, ...). **Bắt buộc phải hỗ trợ ảnh** — agent xem ảnh camera để quyết
   định retry/replan, model text-only sẽ lỗi giữa chừng.
@@ -52,10 +58,7 @@ python -c "import torch; print(torch.cuda.is_available())"   # phải ra True
 pip install -r requirements.txt
 ```
 
-`lerobot[libero]` sẽ tự kéo theo LIBERO (package `hf-libero`), `robosuite==1.4.0`,
-`mujoco`, `bddl`... — **không cần build LIBERO từ source thủ công**.
-
-### 4. Cấu hình `.env`
+### 4. Cấu hình `.env` (LLM)
 
 ```bash
 cp .env.example .env
@@ -74,12 +77,37 @@ OPENAI_MODEL=...                                  # PHẢI là model hỗ trợ 
 > hoặc nhận ảnh kết quả từ `take_action`. Chọn model có vision, ví dụ
 > `google/gemini-2.0-flash-001` hoặc `openai/gpt-4o-mini` qua OpenRouter.
 
+### 5. Cấu hình `config.yaml` (robot / camera / policy)
+
+`config.yaml` ở root repo chứa TOÀN BỘ thông số phần cứng (không đưa vào `.env`).
+Sửa trực tiếp file này theo máy của bạn — port robot, port từng camera, đường dẫn
+policy checkpoint, `rename_map` (map tên camera robot -> tên camera policy đã train).
+Ví dụ ứng với lệnh `lerobot-rollout` gốc:
+
+```bash
+lerobot-rollout --strategy.type=base \
+    --policy.path=... --policy.empty_cameras=1 --policy.device=cuda \
+    --robot.type=so101_follower --robot.port=/dev/ttyACM1 --robot.id=follower_arm \
+    --task="pick up the sandwich and put it in the cart" \
+    --robot.cameras='{"wrist": {...}, "top": {...}}' \
+    --rename_map='{"observation.images.wrist": "observation.images.camera1", ...}'
+```
+
+đã có sẵn ánh xạ tương ứng trong `config.yaml` mẫu — chỉ cần chỉnh `robot.port`,
+`robot.cameras.*.index_or_path`, và `policy.path` cho đúng máy bạn. Có thể trỏ tới
+file khác qua biến môi trường `VLA_CONFIG=/path/to/other-config.yaml`.
+
+**Ngưỡng an toàn** (`safety.max_step_deg`, `robot.max_relative_target` trong
+`config.yaml`) là giá trị khởi điểm — PHẢI test tay ở tốc độ thấp trước khi chạy tự
+động, vì robot thật không còn được kiểm chứng bằng mô phỏng nào.
+
 ## Chạy
 
 Cần 2 terminal, cùng activate `lerobot_arm`:
 
 ```bash
-# Terminal 1 — Edge: mở cửa sổ MuJoCo/cv2, load SmolVLA (lần đầu ~1-2 phút để tải weight)
+# Terminal 1 — Edge: kết nối robot/camera thật, mở cửa sổ cv2, load policy
+# (lần đầu ~1-2 phút để tải weight nếu policy.path là HuggingFace repo)
 conda activate lerobot_arm
 ./run_edge.sh
 
@@ -94,12 +122,15 @@ Mở trình duyệt: **http://localhost:8000**
 
 - **`404 No endpoints found that support image input`**: model trong `.env` không
   hỗ trợ vision — đổi `OPENAI_MODEL`.
-- **Treo/lỗi ở lần chạy đầu tiên**: đang tải asset LIBERO (~400MB) hoặc weight
-  SmolVLA (~1.2GB) — cần mạng ổn định, đợi xong sẽ được cache lại cho lần sau.
-- **Lỗi liên quan EGL/GLFW hoặc cửa sổ cv2 không hiện**: đảm bảo máy có driver GPU
-  cho phép offscreen render (EGL) — set `MUJOCO_GL=egl` (đã set sẵn trong
-  `run_edge.sh`). Nếu chạy qua SSH không có display, cửa sổ `cv2.imshow` sẽ lỗi —
-  cần chạy trực tiếp trên máy có màn hình hoặc X forwarding.
+- **Không mở được `/dev/ttyACM*`**: kiểm tra `robot.port` trong `config.yaml` đúng
+  chưa (`ls /dev/ttyACM*`), và user hiện tại có trong group `dialout` không
+  (`sudo usermod -aG dialout $USER`, rồi đăng xuất/đăng nhập lại).
+- **Camera không mở được / sai `index_or_path`**: kiểm tra `v4l2-ctl --list-devices`
+  hoặc `ls /dev/video*`, sửa `robot.cameras.*.index_or_path` trong `config.yaml`.
+- **Cửa sổ `cv2.imshow` không hiện**: cần chạy trực tiếp trên máy có màn hình hoặc
+  X forwarding — chạy qua SSH thuần không có display sẽ lỗi.
+- **Robot giật/chạy sai hướng ngay từ đầu**: giảm `safety.max_step_deg` và
+  `robot.max_relative_target` trong `config.yaml`, test lại ở tốc độ thấp.
 - **Hết VRAM**: giảm tải bằng cách đóng ứng dụng GPU khác; SmolVLA cần ~2-3GB VRAM.
 - **`touch /tmp/vla_inject_safety`**: dùng để demo/test nhánh dừng khẩn cấp
   (SAFETY_STOP) — xoá file đó để robot chạy lại bình thường.
@@ -108,11 +139,14 @@ Mở trình duyệt: **http://localhost:8000**
 
 ```
 mvp_vla/
-├── .env.example               Mẫu biến môi trường
+├── .env.example               Mẫu biến môi trường (chỉ LLM — OPENAI_*)
+├── config.yaml                 Cấu hình robot/camera/policy (port, cameras, path...)
 ├── requirements.txt            Dependency (trừ torch — cài riêng theo GPU)
 ├── run_edge.sh  run_server.sh  2 script chạy
-├── scripts/spike_policy.py     Smoke test policy (Task 0)
-├── edge_vla/                   MCP SERVER (LIBERO/MuJoCo + SmolVLA + hard limits)
+├── scripts/spike_policy.py     Smoke test policy trên LIBERO (spike lịch sử, không
+│                                dùng runtime robot thật — cần cài thêm lerobot[libero]
+│                                nếu muốn chạy lại)
+├── edge_vla/                   MCP SERVER (robot thật qua lerobot + policy + hard limits)
 └── server/                     Cloud Agent (LangGraph + FastAPI + MCP client)
 └── ui/index.html                Chat UI + event log + MJPEG live view
 ```

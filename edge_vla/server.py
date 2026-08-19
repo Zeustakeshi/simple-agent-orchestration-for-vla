@@ -32,9 +32,9 @@ controller = Controller(viewer, store)
 
 @mcp.tool()
 def get_robot_state() -> dict:
-    """SYNC, non-blocking. Trả state hiện tại của edge (busy, retry_count, task LIBERO
-    đang chọn) + danh sách 10 task LIBERO khả dụng (task_id + language) để agent chọn
-    subgoal/libero_task_id phù hợp. Gọi tool này TRƯỚC khi lập kế hoạch."""
+    """SYNC, non-blocking. Trả state hiện tại của edge (busy, retry_count, robot đã
+    kết nối chưa, vị trí joint hiện tại, danh sách camera). Gọi tool này TRƯỚC khi lập
+    kế hoạch."""
     return controller.get_robot_state()
 
 
@@ -47,23 +47,28 @@ def capture() -> dict:
 
 
 @mcp.tool()
-def take_action(subgoal: str, k: int, libero_task_id: int | None = None) -> dict:
+def take_action(subgoal: str, k: int) -> dict:
     """ASYNC — trả về NGAY (~10ms), KHÔNG chờ robot chạy xong.
 
-    Chạy robot tối đa k step (hard-clamped [1, 200]) hướng tới `subgoal`. Nếu robot
-    đang busy -> trả {status: ROBOT_BUSY} và KHÔNG spawn task mới (gọi check_status
-    của task hiện tại trước). Sau khi gọi, PHẢI poll check_status(task_id, wait_s)
-    với wait_s tăng dần (gợi ý 3 -> 5 -> 8) cho tới khi status khác RUNNING — KHÔNG
-    gọi take_action mới trong lúc chưa DONE/FAILED/SAFETY_STOP/TIMEOUT/ABORTED.
+    Chạy robot tối đa k step (hard-clamped [1, 200]) hướng tới `subgoal`. `subgoal`
+    được gửi THẲNG cho policy làm task text (giống `--task="..."` của lerobot-rollout)
+    — mô tả càng cụ thể càng tốt. Nếu robot đang busy -> trả {status: ROBOT_BUSY} và
+    KHÔNG spawn task mới (gọi check_status của task hiện tại trước). Sau khi gọi, PHẢI
+    poll check_status(task_id, wait_s) với wait_s tăng dần (gợi ý 3 -> 5 -> 8) cho tới
+    khi status khác RUNNING — KHÔNG gọi take_action mới trong lúc chưa
+    DONE/FAILED/SAFETY_STOP/TIMEOUT/ABORTED.
+
+    Robot thật không có ground-truth thành công — kết quả DONE luôn có success=None,
+    agent PHẢI xem ảnh trả về để tự đánh giá. Nếu gọi take_action với CÙNG subgoal
+    nhiều lần liên tiếp (agent tự retry) và chạm MAX_RETRY, edge tự động recovery (mở
+    gripper + về home) và trả FAILED_MAX_RETRY thay vì chạy tiếp.
 
     Args:
-        subgoal: mô tả tự nhiên (tiếng Anh) việc cần làm, dùng để fuzzy-match với
-            một trong 10 task LIBERO nếu libero_task_id không được truyền.
+        subgoal: mô tả tự nhiên (tiếng Anh) việc cần làm — dùng trực tiếp làm task
+            text cho policy.
         k: số step tối đa cho lượt chạy này (gợi ý 40-80 cho pick-place).
-        libero_task_id: nếu đã biết chính xác (từ get_robot_state), truyền vào để
-            khỏi phụ thuộc fuzzy-match.
     """
-    return controller.take_action(subgoal, k, libero_task_id)
+    return controller.take_action(subgoal, k)
 
 
 @mcp.tool()
@@ -87,17 +92,16 @@ async def check_status(task_id: str, wait_s: float) -> dict:
 
 @mcp.tool()
 def check_success() -> dict:
-    """SYNC, blocking ngắn (~ms). Kiểm tra lại predicate thành công (ground-truth
-    BDDL) + toạ độ object/basket NGAY LÚC GỌI, độc lập với vòng lặp take_action.
-    Dùng khi muốn double-check trạng thái hiện tại của scene."""
+    """SYNC, non-blocking. Robot thật KHÔNG có ground-truth thành công (không còn
+    predicate BDDL như bản mô phỏng) — luôn trả success=None. Dùng capture() rồi tự
+    đánh giá qua ảnh."""
     return controller.check_success()
 
 
 @mcp.tool()
 def go_home() -> dict:
-    """SYNC, blocking (~2s). Đưa tay về home_eef_pos bằng action tương đối (KHÔNG
-    dùng env.reset() để không teleport lại object trong scene). Gọi sau khi
-    DONE+success=true để dọn dẹp trước lượt tiếp theo."""
+    """SYNC, blocking (~1-2s). Nội suy từng joint về vị trí lúc edge server kết nối
+    robot (home_positions). Gọi sau khi DONE để dọn dẹp trước lượt tiếp theo."""
     return controller.go_home()
 
 
@@ -109,9 +113,10 @@ def abort(task_id: str) -> dict:
 
 @mcp.tool()
 def reset_episode() -> dict:
-    """SYNC, blocking (~1-2s). Tool NGOÀI kiến trúc gốc: reset lại episode hiện tại
-    (không phải một tool chuẩn của VLA orchestrator) để chạy lại demo mà không cần
-    khởi động lại edge server."""
+    """SYNC, blocking (~1-2s). Tool NGOÀI kiến trúc gốc: abort task hiện tại (nếu có),
+    đưa robot về home, và xoá state retry/subgoal đang theo dõi — dùng để "làm mới"
+    phiên làm việc mà không cần khởi động lại edge server. Robot thật không có scene
+    để reset như bản mô phỏng."""
     return controller.reset_episode()
 
 

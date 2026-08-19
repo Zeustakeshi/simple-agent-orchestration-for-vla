@@ -1,0 +1,75 @@
+# Cấu hình robot thật + camera + policy cho Edge VLA.
+# Copy/sửa file này (không commit thông số riêng của máy bạn nếu là repo dùng chung).
+# Đường dẫn file này có thể override qua biến môi trường VLA_CONFIG.
+
+mcp:
+    port: 8931
+
+robot:
+    type: so101_follower
+    port: /dev/ttyACM1
+    id: follower_arm
+    # Độ/lệnh — clamp delta mỗi lần gửi Goal_Position so với Present_Position hiện
+    # tại (SOFollower.send_action). Để null/bỏ trống = KHÔNG clamp, giống hệt default
+    # của `lerobot-rollout` khi không truyền --robot.max_relative_target (đây là setup
+    # đã chứng minh gắp được thật). Đặt số ở đây (vd 15) sẽ khiến robot chỉ "nhích"
+    # từng chút thay vì thực hiện được các bước với/gắp cần biên độ lớn — chỉ bật lại
+    # nếu thực sự cần giới hạn tốc độ chuyển động vì lý do an toàn khác.
+    max_relative_target: null
+    cameras:
+        wrist:
+            type: opencv
+            index_or_path: /dev/video4
+            width: 1280
+            height: 720
+            fps: 30
+            fourcc: MJPG
+        top:
+            type: opencv
+            index_or_path: /dev/video2
+            width: 640
+            height: 480
+            fps: 30
+            fourcc: MJPG
+
+policy:
+    path: /home/minhhieuano/2222/workspace/ai_in_action/dataset_build/testmodel_2/model_v100/content/outputs/train/smolvla_arm_v3/checkpoints/100000/pretrained_model
+    device: cuda
+    empty_cameras: 1
+    # ĐỂ TRỐNG (không set key này) = dùng đúng n_action_steps đã train trong
+    # checkpoint (đọc trong <policy.path>/config.json — checkpoint smolvla_arm_v3
+    # hiện tại train với n_action_steps=50, chunk_size=50). CHỈ set số ở đây nếu bạn
+    # cố ý muốn re-plan thường xuyên hơn — ép về số nhỏ hơn chunk_size gốc sẽ khiến
+    # robot luôn lặp lại đoạn ĐẦU quỹ đạo (khởi động nhẹ) rồi infer lại, không bao giờ
+    # tới đoạn có động tác with/gắp quyết đoán ("chỉ nhích, không gắp được").
+    # n_action_steps: 50
+    # Override nhanh không cần sửa file: biến môi trường VLA_N_ACTION_STEPS.
+
+task:
+    default: "pick up the sandwich and put it in the cart"
+
+# Map tên camera robot -> tên camera mà policy đã train (khớp --rename_map của
+# lerobot-rollout CLI).
+rename_map:
+    observation.images.wrist: observation.images.camera1
+    observation.images.top: observation.images.camera2
+
+control:
+    fps: 30
+
+safety:
+    # KHÔNG còn dùng để chặn action từ policy nữa (SO-101 là position-mode servo —
+    # gửi target cách xa vị trí hiện tại là BÌNH THƯỜNG, servo tự chạy tới đó theo tốc
+    # độ riêng, không phải dịch chuyển tức thời như mô phỏng — xem edge_vla/safety.py).
+    # Vẫn giữ lại: dùng nội bộ trong Controller._go_home() để kiểm soát độ mượt lúc về
+    # home, KHÔNG liên quan an toàn khi chạy task.
+    max_step_deg: 60
+    inject_file: /tmp/vla_inject_safety
+    # TẠM TẮT theo yêu cầu — ĐÂY LÀ RANH GIỚI VẬT LÝ ĐO THẬT từ file calibration của
+    # chính robot này (range mỗi khớp lúc bạn quay tay calibrate), không phải số đoán.
+    # Tắt nghĩa là KHÔNG còn gì chặn robot cố đi vượt phạm vi đã calibrate — nếu
+    # calibration đã sát giới hạn cơ khí thật, servo có thể bị kẹt/gắng sức ở cuối
+    # hành trình. Sau khi bỏ check "step quá lớn" (không còn ý nghĩa với position-mode
+    # servo), đây là lớp an toàn tự động DUY NHẤT còn lại ngoài inject_file. BẬT LẠI
+    # (true) ngay khi debug xong.
+    check_joint_limits: false
